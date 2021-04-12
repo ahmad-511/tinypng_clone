@@ -146,6 +146,8 @@ const uploadFile = (file, fileID) => {
 }
 
 const setupUploadMonitor = (xhr, fileID) => {
+    const progress = document.getElementById(`progress_${fileID}`);
+
     // File uploading
     xhr.upload.addEventListener('progress', e => {
         if(e.lengthComputable){
@@ -155,7 +157,6 @@ const setupUploadMonitor = (xhr, fileID) => {
 
     // File uploaded
     xhr.upload.addEventListener('loadend', e => {
-        const progress = document.getElementById(`progress_${fileID}`);
         progress.classList.add('compressing');
 
         updateProgressLabel(fileID, 'Compressing');
@@ -163,17 +164,21 @@ const setupUploadMonitor = (xhr, fileID) => {
 }
 
 const setupDownloadMonitor = (xhr, fileID) => {
+    const progress = document.getElementById(`progress_${fileID}`);
+
     // File downloading
     xhr.addEventListener('progress', e => {
         if(e.lengthComputable){
             updateProgressBar(fileID, 'Downloading', e.total, e.loaded);
         }
+
+        if(progress.classList.contains('compressing')){
+            progress.classList.remove('compressing');
+        }
     });
 
     // File downloaded
     xhr.addEventListener('loadend', e => {
-        const progress = document.getElementById(`progress_${fileID}`);
-        progress.classList.remove('compressing');
         progress.classList.add('finished');
         
         updateProgressLabel(fileID, 'Finished');

@@ -139,6 +139,10 @@ header {
   border-radius: 15px;
 }
 
+.compressing::-webkit-progress-value {
+  background: rgb(33, 150, 243);
+}
+
 .results__bar::before {
   position: absolute;
   width: 100%;
