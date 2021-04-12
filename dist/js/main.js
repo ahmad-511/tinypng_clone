@@ -124,50 +124,18 @@ const uploadFile = (file, fileID) => {
             const xhr = new XMLHttpRequest();
             
             // Monitoring upload progress
-            xhr.upload.addEventListener('progress', e => {
-                if(e.lengthComputable){
-                    updateProgressBar(fileID, 'Uploading', e.total, e.loaded);
-                }
-            });
-
-            xhr.upload.addEventListener('loadend', e => {
-                // File uploaded
-                const progress = document.getElementById(`progress_${fileID}`);
-                progress.classList.add('compressing');
-
-                updateProgressLabel(fileID, 'Compressing');
-            });
+            setupUploadMonitor(xhr, fileID);
 
             // Monitoring download progress
-            xhr.addEventListener('progress', e => {
-                if(e.lengthComputable){
-                    updateProgressBar(fileID, 'Downloading', e.total, e.loaded);
-                }
+            setupDownloadMonitor(xhr, fileID);
+
+            // Data received from server
+            onResponse(xhr, (imgJson) => {
+                populateResult(file, fileID, imgJson);
             });
 
-            xhr.addEventListener('loadend', e => {
-                // File downloaded
-                const progress = document.getElementById(`progress_${fileID}`);
-                progress.classList.remove('compressing');
-                progress.classList.add('finished');
-                
-                updateProgressLabel(fileID, 'Finished');
-            });
-
-            xhr.addEventListener('readystatechange', function(){
-                if (this.readyState === 4) {
-                    const imgJson = this.response;
-
-                    if (imgJson.error) return handleFileError(fileID);
-
-                    populateResult(file, fileID, imgJson);
-                }
-            });
-
-            xhr.open('POST', url);
-            xhr.responseType = 'json';
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.send(JSON.stringify(body));
+            // Request the server
+            sendRequest(xhr, url, body);
 
         } catch (err) {
             console.error(err);
@@ -175,6 +143,62 @@ const uploadFile = (file, fileID) => {
     });
 
     reader.readAsDataURL(file);
+}
+
+const setupUploadMonitor = (xhr, fileID) => {
+    // File uploading
+    xhr.upload.addEventListener('progress', e => {
+        if(e.lengthComputable){
+            updateProgressBar(fileID, 'Uploading', e.total, e.loaded);
+        }
+    });
+
+    // File uploaded
+    xhr.upload.addEventListener('loadend', e => {
+        const progress = document.getElementById(`progress_${fileID}`);
+        progress.classList.add('compressing');
+
+        updateProgressLabel(fileID, 'Compressing');
+    });
+}
+
+const setupDownloadMonitor = (xhr, fileID) => {
+    // File downloading
+    xhr.addEventListener('progress', e => {
+        if(e.lengthComputable){
+            updateProgressBar(fileID, 'Downloading', e.total, e.loaded);
+        }
+    });
+
+    // File downloaded
+    xhr.addEventListener('loadend', e => {
+        const progress = document.getElementById(`progress_${fileID}`);
+        progress.classList.remove('compressing');
+        progress.classList.add('finished');
+        
+        updateProgressLabel(fileID, 'Finished');
+    });
+}
+
+const onResponse = (xhr, callback) => {
+    xhr.addEventListener('readystatechange', function(){
+        if (this.readyState === 4) {
+            if (this.response.error) {
+                console.log(this.response.error);
+
+                return handleFileError(fileID);
+            }
+
+            callback(this.response);
+        }
+    });
+}
+
+const sendRequest = (xhr, url, body) => {
+    xhr.open('POST', url);
+    xhr.responseType = 'json';
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(JSON.stringify(body));
 }
 
 const handleFileError = (fileID) => {
