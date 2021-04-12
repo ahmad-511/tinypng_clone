@@ -139,12 +139,12 @@ header {
   border-radius: 15px;
 }
 
-.finished::before {
+.results__bar::before {
   position: absolute;
-  top: 8%;
-  left: 50%;
-  margin-left: -25px;
-  content: "Finished";
+  width: 100%;
+  text-align: center;
+  line-height: 30px;
+  content: attr(data-label);
   color: rgb(54, 58, 67);
   font-size: 0.7rem;
 }

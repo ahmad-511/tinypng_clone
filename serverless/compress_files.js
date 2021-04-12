@@ -26,14 +26,24 @@ exports.handler = async (event, context) => {
         const filesize = newImgBuffer.length;
         const base64CompString = newImgBuffer.toString('base64');
         const imageDataObj = { base64CompString, filename, filesize };
+        const content = JSON.stringify(imageDataObj);
         return {
             statusCode: 200,
-            body: JSON.stringify(imageDataObj)
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': content.length,
+            },
+            body: content
         }
     } catch (err) {
+        const content = JSON.stringify({ error: "File Error" });
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: "File Error" })
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': content.length,
+            },
+            body: content
         }
     }
 }

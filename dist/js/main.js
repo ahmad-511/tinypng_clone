@@ -38,8 +38,7 @@ const handleDrop = (e) => {
 
 const handleFiles = (fileArray) => {
     fileArray.forEach(file => {
-        const fileID = counter.getValue();
-        counter.incrementValue();
+        const fileID = counter.incrementValue();
         if (file.size > 4 * 1024 * 1024) return alert("File over 4 MB");
         createResult(file, fileID);
         uploadFile(file, fileID);
@@ -62,21 +61,21 @@ const createResult = (file, fileID) => {
     divOne.appendChild(p2);
 
     const progress = document.createElement("progress");
-    progress.id = `progress_${file.name}_${fileID}`;
+    progress.id = `progress_${fileID}`;
     progress.className = "results__bar";
-    progress.max = 10;
+    progress.max = 1;
     progress.value = 0;
 
     const p3 = document.createElement("p");
-    p3.id = `new_size_${file.name}_${fileID}`;
+    p3.id = `new_size_${fileID}`;
     p3.className = "results__size";
 
     const p4 = document.createElement("p");
-    p4.id = `download_${file.name}_${fileID}`;
+    p4.id = `download_${fileID}`;
     p4.className = "results__download";
 
     const p5 = document.createElement("p");
-    p5.id = `saved_${file.name}_${fileID}`;
+    p5.id = `saved_${fileID}`;
     p5.className = "results__saved";
 
     const divDL = document.createElement("div");
@@ -99,7 +98,7 @@ const createResult = (file, fileID) => {
 
 const getFileSizeString = (filesize) => {
     const sizeInKB = parseFloat(filesize) / 1024;
-    const sizeInMB = (sizeInKB / 1024);
+    const sizeInMB = sizeInKB / 1024;
     return sizeInKB > 1024 ? `${sizeInMB.toFixed(1)} MB` : `${sizeInKB.toFixed(1)} KB`;
 }
 
@@ -122,13 +121,54 @@ const uploadFile = (file, fileID) => {
         const url = './.netlify/functions/compress_files';
 
         try {
-            const fileStream = await fetch(url, {
-                method: "POST",
-                body: JSON.stringify(body)
+            const xhr = new XMLHttpRequest();
+            
+            // Monitoring upload progress
+            xhr.upload.addEventListener('progress', e => {
+                if(e.lengthComputable){
+                    updateProgressBar(fileID, 'Uploading', e.total, e.loaded);
+                }
             });
-            const imgJson = await fileStream.json();
-            if (imgJson.error) return handleFileError(filename, fileID);
-            updateProgressBar(file, fileID, imgJson);
+
+            xhr.upload.addEventListener('loadend', e => {
+                // File uploaded
+                const progress = document.getElementById(`progress_${fileID}`);
+                progress.classList.add('compressing');
+
+                updateProgressLabel(fileID, 'Compressing');
+            });
+
+            // Monitoring download progress
+            xhr.addEventListener('progress', e => {
+                if(e.lengthComputable){
+                    updateProgressBar(fileID, 'Downloading', e.total, e.loaded);
+                }
+            });
+
+            xhr.addEventListener('loadend', e => {
+                // File downloaded
+                const progress = document.getElementById(`progress_${fileID}`);
+                progress.classList.remove('compressing');
+                progress.classList.add('finished');
+                
+                updateProgressLabel(fileID, 'Finished');
+            });
+
+            xhr.addEventListener('readystatechange', function(){
+                if (this.readyState === 4) {
+                    const imgJson = this.response;
+
+                    if (imgJson.error) return handleFileError(fileID);
+
+                    populateResult(file, fileID, imgJson);
+                }
+            });
+
+            xhr.open('POST', url);
+            xhr.responseType = 'json';
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(JSON.stringify(body));
+
         } catch (err) {
             console.error(err);
         }
@@ -137,36 +177,37 @@ const uploadFile = (file, fileID) => {
     reader.readAsDataURL(file);
 }
 
-const handleFileError = (filename, fileID) => {
-    const progress = document.getElementById(`progress_${filename}_${fileID}`);
-    progress.value = 10;
+const handleFileError = (fileID) => {
+    const progress = document.getElementById(`progress_${fileID}`);
+    progress.value = progress.max;
     progress.classList.add('error');
 }
 
-const updateProgressBar = (file, fileID, imgJson) => {
-    const progress = document.getElementById(`progress_${file.name}_${fileID}`);
-    const addProgress = setInterval(() => {
-        progress.value += 1;
-        if (progress.value === 10) {
-            clearInterval(addProgress);
-            progress.classList.add('finished');
-            populateResult(file, fileID, imgJson);
-        }
-    }, 50);
+const updateProgressBar = (fileID, label, total, loaded) => {
+    const progress = document.getElementById(`progress_${fileID}`);
+    progress.max = total;
+    progress.value = loaded;
+
+    updateProgressLabel(fileID, `${label} ${Math.floor(loaded * 100 / total)}%`);
+}
+
+const updateProgressLabel = (fileID, label) => {
+    const progress = document.getElementById(`progress_${fileID}`);
+    progress.dataset.label = label;
 }
 
 const populateResult = (file, fileID, imgJson) => {
     const newFileSizeString = getFileSizeString(imgJson.filesize);
     const percentSaved = getPercentSaved(file.size, imgJson.filesize);
 
-    const newSize = document.getElementById(`new_size_${file.name}_${fileID}`);
+    const newSize = document.getElementById(`new_size_${fileID}`);
     newSize.textContent = newFileSizeString;
 
-    const download = document.getElementById(`download_${file.name}_${fileID}`);
+    const download = document.getElementById(`download_${fileID}`);
     const link = createDownloadLink(imgJson);
     download.appendChild(link);
 
-    const saved = document.getElementById(`saved_${file.name}_${fileID}`);
+    const saved = document.getElementById(`saved_${fileID}`);
     saved.textContent = `−${Math.round(percentSaved)}%`;
 }
 
